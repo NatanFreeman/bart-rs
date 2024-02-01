@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::{collections::HashMap, path::Path};
 
 #[derive(Clone, Copy)]
@@ -7,9 +9,7 @@ pub struct Token {
 
 impl Token {
     pub fn new(tokenizer: &WordPieceTokenizer, id: u32) -> Option<Self> {
-        if tokenizer.vocab.get(&id).is_none() {
-            return None;
-        }
+        tokenizer.vocab.get(&id)?;
         Some(Self { id })
     }
     pub fn to_substr(&self, tokenizer: &WordPieceTokenizer) -> Option<Box<str>> {
@@ -39,7 +39,7 @@ impl WordPieceTokenizer {
     }
 
     fn reformat_for_bert(text: &str)-> Box<str>{
-        text.to_lowercase().replace(" ", "").into_boxed_str()
+        text.to_lowercase().replace(' ', "").into_boxed_str()
     }
 
     pub fn tokenize(&self, text: &str) -> Box<[Token]> {
@@ -56,8 +56,6 @@ impl WordPieceTokenizer {
 
             if let Some(longest) = longest {
                 if start > 0 {
-                    tokens.push(Token::new(self, *longest.0).unwrap());
-                } else {
                     tokens.push(Token::new(self, *longest.0).unwrap());
                 }
                 start += longest.1.len();
