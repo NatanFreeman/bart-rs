@@ -1,12 +1,13 @@
-use candle_core::{Device, Tensor};
+mod tokenizer;
+mod utils;
+use tokenizer::WordPieceTokenizer;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let device = Device::Cpu;
-
-    let a = Tensor::randn(0f32, 1., (2, 3), &device)?;
-    let b = Tensor::randn(0f32, 1., (3, 4), &device)?;
-
-    let c = a.matmul(&b)?;
-    println!("{c}");
+    let text = "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration";
+    let tokenizer=WordPieceTokenizer::new("vocab.txt");
+    let tokens=tokenizer.tokenize(text);
+    for i in tokens.iter(){
+        print!(" {}", i.get_id());
+    }
     Ok(())
 }
