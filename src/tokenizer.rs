@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    fs,
+    path::Path,
+};
 
 #[derive(Clone, Copy)]
 pub struct Token {
@@ -18,32 +22,28 @@ impl Token {
             .get(&self.id)
             .map(|x| x.to_owned().into_boxed_str())
     }
-    pub fn get_id(&self)->u32{
+    pub fn get_id(&self) -> u32 {
         self.id
     }
 }
 
+#[derive(serde::Deserialize)]
 pub struct WordPieceTokenizer {
     vocab: HashMap<u32, String>,
 }
 
 impl WordPieceTokenizer {
-    pub fn new<T: AsRef<Path>>(vocab_file: T) -> Self {
-        let mut vocab = HashMap::new();
-        if let Ok(lines) = crate::utils::read_lines(vocab_file) {
-            for (i, token) in lines.flatten().enumerate() {
-                assert!(vocab.insert(i as u32, token).is_none());
-            }
-        }
-        Self { vocab }
-    }
-
-    fn reformat_for_bert(text: &str)-> Box<str>{
-        text.to_lowercase().replace(' ', "").into_boxed_str()
+    pub fn new<T: AsRef<Path>>(vocab_path: T) -> Result<Self, std::io::Error> {
+        let contents = fs::read_to_string(vocab_path)?;
+        let vocab: HashMap<String, u32> = serde_json::from_str(&contents)?;
+        let vocab = vocab
+            .iter()
+            .map(|(token, id)| (*id, token.to_owned()))
+            .collect();
+        Ok(Self { vocab })
     }
 
     pub fn tokenize(&self, text: &str) -> Box<[Token]> {
-        let text = Self::reformat_for_bert(text);
         let mut tokens = Vec::new();
 
         let mut start = 0;

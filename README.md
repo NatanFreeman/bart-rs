@@ -1,14 +1,26 @@
 # transformer-rust
+
 In this repo, I attempt to program the transformer from the [2017 paper "Attention Is All You Need"](https://arxiv.org/abs/1706.03762). I use Rust and huggingface's [candle](https://github.com/huggingface/candle) framework to achieve this. The goal is to fully understand how transformers work by coding one myself.
 
-I specifically implement [BERT](https://huggingface.co/bert-large-uncased) in this project. I did this because I couldn't find the pre-trained model used in the original paper, and I'm pretty sure BERT uses the same architecture.
+I specifically implement [BART Large](https://huggingface.co/facebook/bart-large-cnn) in this project. I did this because I couldn't find the pre-trained model used in the original paper. The BART architecture is pretty similar as the focus of the paper was on pre-training. 
+
+These are the differences:
+- GeLU activation functions are used instead of ReLU
+- BART Large's encoder and decoder have 12 layers each, double that of the original transformer
+There are a couple more differences but I don't understand them yet
 
 ## Running
-Clone the BERT repo:
+
+Clone the BART repo:
+
 ```bash
-git clone https://huggingface.co/bert-large-uncased
+# Make sure you have git-lfs installed (https://git-lfs.com)
+git lfs install
+git clone https://huggingface.co/facebook/bart-large-cnn
 ```
+
 Run with `cargo`
+
 ```bash
 cargo run --release
 ```
