@@ -1,10 +1,6 @@
 #![allow(dead_code)]
 
-use std::{
-    collections::HashMap,
-    fs,
-    path::Path,
-};
+use std::{collections::HashMap, fs, path::Path};
 
 #[derive(Clone, Copy)]
 pub struct Token {
@@ -46,28 +42,28 @@ impl WordPieceTokenizer {
     pub fn tokenize(&self, text: &str) -> Box<[Token]> {
         let mut tokens = Vec::new();
 
-        let mut start = 0;
-        while start < text.len() {
-            let longest = self
-                .vocab
-                .iter()
-                .filter(|(_key, value)| text[start..].starts_with(*value))
-                .max_by_key(|(_key, value)| value.len());
-
-            if let Some(longest) = longest {
-                if start > 0 {
-                    tokens.push(Token::new(self, *longest.0).unwrap());
-                }
-                start += longest.1.len();
-            } else {
-                let unk = self
+        for word in text.split(" ") {
+            let mut start = 0;
+            while start < word.len() {
+                let longest = self
                     .vocab
-                    .clone()
-                    .into_iter()
-                    .find(|(_, value)| value == "[UNK]")
-                    .unwrap();
-                tokens.push(Token::new(self, unk.0).unwrap());
-                start += 1;
+                    .iter()
+                    .filter(|(_key, value)| word[start..].starts_with(*value))
+                    .max_by_key(|(_key, value)| value.len());
+
+                if let Some(longest) = longest {
+                    tokens.push(Token::new(self, *longest.0).unwrap());
+                    start += longest.1.len();
+                } else {
+                    let unk = self
+                        .vocab
+                        .clone()
+                        .into_iter()
+                        .find(|(_, value)| value == "<unk>")
+                        .unwrap();
+                    tokens.push(Token::new(self, unk.0).unwrap());
+                    start += 1;
+                }
             }
         }
 
