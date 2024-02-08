@@ -1,14 +1,12 @@
-use candle_core::Device;
 use candle_core::Shape;
-use gguf_rs::{get_gguf_container, GGUFModel};
+use gguf_rs::GGUFModel;
 use half::f16;
 use std::fs::File;
 use std::io;
-use std::io::Read;
-use std::io::Seek;
-use std::io::SeekFrom;
 use std::os::windows::fs::FileExt;
 use std::path::Path;
+
+use crate::tensors::tensor_from_floats;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -22,7 +20,8 @@ pub enum Error {
     BuildingTensor(#[from] candle_core::Error),
 }
 
-fn get_token_embeddings_metadata(model: &GGUFModel) -> Option<gguf_rs::Tensor> {
+/// Looks for the metadata for the embedding tensor in the GGUF file
+pub fn token_embeds_metadata(model: &GGUFModel) -> Option<gguf_rs::Tensor> {
     model
         .tensors()
         .iter()
@@ -43,27 +42,18 @@ fn deserialize_floats(buffer: Box<[u8]>) -> Result<Box<[f16]>, bincode::Error> {
     Ok(floats.into_boxed_slice())
 }
 
-fn tensor_from_floats(
-    floats: Box<[f16]>,
-    tensor_shape: Shape,
-) -> Result<candle_core::Tensor, candle_core::Error> {
-    let mut total = 1;
-    for i in tensor_shape.dims() {
-        total = total * i;
-    }
-    let embedding_tensor =
-        candle_core::Tensor::from_vec(floats.to_vec(), tensor_shape, &Device::Cpu)?;
-    Ok(embedding_tensor)
-}
-
-fn get_token_embeddings<P: AsRef<Path>>(
+pub fn get_token_embeddings<P: AsRef<Path>>(
     model: &GGUFModel,
     model_path: &P,
 ) -> Result<Option<candle_core::Tensor>, Error> {
-    let tensor_metadata = get_token_embeddings_metadata(&model).ok_or(Error::NoEmbeddingWeights)?;
-    let model_file = File::open(model_path)?;
+    let tensor_metadata = token_embeds_metadata(&model).ok_or(Error::NoEmbeddingWeights)?;
+
     let mut embeddings_buffer = vec![0; tensor_metadata.size as usize * 8];
-    model_file.seek_read(&mut embeddings_buffer, tensor_metadata.offset)?;
+    {
+        let model_file = File::open(model_path)?;
+        model_file.seek_read(&mut embeddings_buffer, tensor_metadata.offset)?;
+    }
+
     let floats = deserialize_floats(embeddings_buffer.into_boxed_slice())?;
     let tensor = tensor_from_floats(
         floats,
@@ -77,38 +67,4 @@ fn get_token_embeddings<P: AsRef<Path>>(
         ),
     )?;
     Ok(Some(tensor))
-}
-
-#[test]
-fn parses_input_embeddings(){
-    let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
-    let mut container = get_gguf_container(&model_path).unwrap();
-    let model = container.decode().unwrap();
-    println!(
-        "Embedding tensor: {:?}",
-        get_token_embeddings(&model, &model_path).unwrap()
-    );
-}
-
-#[test]
-fn parses_gguf() {
-    let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
-    let mut container = get_gguf_container(&model_path).unwrap();
-    let model = container.decode().unwrap();
-    println!("Model Family: {}", model.model_family());
-    println!("Number of Parameters: {}", model.model_parameters());
-    println!("File Type: {}", model.file_type());
-    println!("Number of Tensors: {}", model.num_tensor());
-    println!("Version: {}", model.get_version());
-    println!("Metadata: {:?}", model.metadata());
-    println!("Number of key value pairs: {}", model.num_kv());
-    println!("Tensor count: {}", model.num_tensor());
-}
-
-#[test]
-fn token_embedding_metadata_found() {
-    let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
-    let mut container = get_gguf_container(&model_path).unwrap();
-    let model = container.decode().unwrap();
-    get_token_embeddings_metadata(&model).unwrap();
 }

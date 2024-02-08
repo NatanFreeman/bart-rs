@@ -16,7 +16,7 @@ impl Token {
         tokenizer
             .vocab
             .get(&self.id)
-            .map(|x| x.to_owned().into_boxed_str())
+            .map(|x| x.to_owned().into_boxed_str().replace("Ġ", "_").into_boxed_str())
     }
     pub fn get_id(&self) -> u32 {
         self.id
@@ -41,14 +41,14 @@ impl WordPieceTokenizer {
 
     pub fn tokenize(&self, text: &str) -> Box<[Token]> {
         let mut tokens = Vec::new();
+        let text=text.replace(" ", "Ġ");
 
-        for word in text.split(" ") {
             let mut start = 0;
-            while start < word.len() {
+            while start < text.len() {
                 let longest = self
                     .vocab
                     .iter()
-                    .filter(|(_key, value)| word[start..].starts_with(*value))
+                    .filter(|(_key, value)| text[start..].starts_with(*value))
                     .max_by_key(|(_key, value)| value.len());
 
                 if let Some(longest) = longest {
@@ -65,7 +65,6 @@ impl WordPieceTokenizer {
                     start += 1;
                 }
             }
-        }
 
         tokens.into()
     }
