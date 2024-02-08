@@ -3,7 +3,6 @@ mod tests;
 mod tokenizer;
 mod weights;
 
-use candle_core::Shape;
 use gguf_rs::get_gguf_container;
 use half::f16;
 use tensors::rot90;
