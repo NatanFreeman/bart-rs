@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::{collections::HashMap, fs, path::Path};
+use tracing::{debug, warn};
 
 #[derive(Clone, Copy)]
 pub struct Token {
@@ -11,7 +12,7 @@ const BART_MAX_SEQ_LEN: usize=1024;
 
 impl Token {
     pub fn from_substr(tokenizer: &WordPieceTokenizer, substr: &str)->Option<Self>{
-        let id=*tokenizer.vocab.iter().find(|x|x.1==substr)?.0;
+        let id: u32=*tokenizer.vocab.iter().find(|x|x.1==substr)?.0;
         Some(Self{id})
     }
 
@@ -39,17 +40,17 @@ impl WordPieceTokenizer {
     pub fn new<T: AsRef<Path>>(vocab_path: T) -> Result<Self, std::io::Error> {
         let contents = fs::read_to_string(vocab_path)?;
         let vocab: HashMap<String, u32> = serde_json::from_str(&contents)?;
-        let vocab = vocab
+        let vocab: HashMap<u32, String> = vocab
             .iter()
             .map(|(token, id)| (*id, token.to_owned()))
             .collect();
+        debug!("Loaded vocabulary of {} tokens", vocab.len());
         Ok(Self { vocab })
     }
 
     pub fn tokenize(&self, text: &str) -> Box<[Token]> {
         let mut tokens = Vec::new();
         let text=text.replace(" ", "Ġ");
-
             let mut start = 0;
             while start < text.len() {
                 let longest = self
@@ -62,6 +63,7 @@ impl WordPieceTokenizer {
                     tokens.push(Token::new(self, *longest.0).unwrap());
                     start += longest.1.len();
                 } else {
+                    warn!("Unrecognized text sequence. Inserting <unk> token");
                     let unk = self
                         .vocab
                         .clone()
@@ -72,7 +74,7 @@ impl WordPieceTokenizer {
                     start += 1;
                 }
             }
-
+        debug!("Tokenized text into {} tokens", tokens.len());
         tokens.into()
     }
 

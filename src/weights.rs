@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io;
 use std::os::windows::fs::FileExt;
 use std::path::Path;
+use tracing::{debug, error};
 
 use crate::tensors::tensor_from_floats;
 
@@ -31,13 +32,23 @@ pub fn token_embeds_metadata(model: &GGUFModel) -> Option<gguf_rs::Tensor> {
 
 fn deserialize_floats(buffer: Box<[u8]>) -> Result<Box<[f16]>, bincode::Error> {
     let mut floats = Vec::new();
+    let mut clamps=0;
     for i in 0..buffer.len() / 16 {
         let buf = &buffer[i * 16..i * 16 + 16];
         let mut f = bincode::deserialize::<f16>(buf)?;
         if f > f16::from_f32(1.0) {
             f = f16::from_f32(1.0);
+            clamps+=1;
+        }
+        else if f < f16::from_f32(-1.0) {
+            f = f16::from_f32(1.0);
+            clamps+=1;
         }
         floats.push(f);
+    }
+    debug!("Read {} f16s from buffer", floats.len());
+    if clamps>0{
+        error!("{clamps} f16s were out of the range -1.0 to 1.0 and were clamped");
     }
     Ok(floats.into_boxed_slice())
 }
@@ -47,7 +58,7 @@ pub fn get_token_embeddings<P: AsRef<Path>>(
     model_path: &P,
 ) -> Result<Option<candle_core::Tensor>, Error> {
     let tensor_metadata = token_embeds_metadata(&model).ok_or(Error::NoEmbeddingWeights)?;
-
+    debug!("Embedding tensor metadata {tensor_metadata:?}");
     let mut embeddings_buffer = vec![0; tensor_metadata.size as usize * 8];
     {
         let model_file = File::open(model_path)?;
