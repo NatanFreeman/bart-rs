@@ -7,7 +7,14 @@ pub struct Token {
     id: u32,
 }
 
+const BART_MAX_SEQ_LEN: usize=1024;
+
 impl Token {
+    pub fn from_substr(tokenizer: &WordPieceTokenizer, substr: &str)->Option<Self>{
+        let id=*tokenizer.vocab.iter().find(|x|x.1==substr)?.0;
+        Some(Self{id})
+    }
+
     pub fn new(tokenizer: &WordPieceTokenizer, id: u32) -> Option<Self> {
         tokenizer.vocab.get(&id)?;
         Some(Self { id })
@@ -67,5 +74,18 @@ impl WordPieceTokenizer {
             }
 
         tokens.into()
+    }
+
+    /// Formats the given tokens in the way BART was trained to process them
+    pub fn format_for_bart(&self, tokens: Box<[Token]>)->Option<Box<[Token]>>{
+        let mut tokens=tokens.to_vec();
+        tokens.insert(0, Token::from_substr(self, "<s>")?);
+        tokens.push(Token::from_substr(self, "</s>")?);
+        let padding_length=BART_MAX_SEQ_LEN-tokens.len();
+        tokens.reserve(padding_length);
+        for _ in 0..padding_length{
+            tokens.push(Token::from_substr(self, "<pad>")?);
+        }
+        Some(tokens.into_boxed_slice())
     }
 }
