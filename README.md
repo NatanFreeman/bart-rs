@@ -7,7 +7,9 @@ I specifically implement [BART Large](https://huggingface.co/facebook/bart-large
 These are the differences:
 - GeLU activation functions are used instead of ReLU
 - BART Large's encoder and decoder have 12 layers each, double that of the original transformer
-There are a couple more differences but I don't understand them yet
+- BART inherits BERT's positional embeddings technic, instead of using trigonometric functions like the original transformer
+- As consequence of using positional embeddings, input is padded using a `<pad>` token to fill the max size of 1024
+There are more differences but I don't understand them yet
 
 ## Running
 

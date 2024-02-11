@@ -22,6 +22,18 @@ fn non_empty_token_embeddings() {
 }
 
 #[test]
+fn list_tensors(){
+    let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
+    let mut container = get_gguf_container(&model_path).unwrap();
+    let model = container.decode().unwrap();
+    let mut tensors: Vec<_>=model.tensors().iter().collect();
+    tensors.sort_by(|a,b|a.name.cmp(&b.name));
+    for i in tensors{
+        println!("{i:?}");
+    }
+}
+
+#[test]
 fn parses_gguf() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
     let mut container = get_gguf_container(&model_path).unwrap();
