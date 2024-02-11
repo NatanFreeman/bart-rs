@@ -1,15 +1,12 @@
 #![allow(dead_code)]
 use candle_core::{Device, Shape};
 use half::f16;
+use tracing::warn;
 
 pub fn tensor_from_floats(
     floats: Box<[f16]>,
     tensor_shape: Shape,
 ) -> Result<candle_core::Tensor, candle_core::Error> {
-    let mut total = 1;
-    for i in tensor_shape.dims() {
-        total = total * i;
-    }
     let embedding_tensor =
         candle_core::Tensor::from_vec(floats.to_vec(), tensor_shape, &Device::Cpu)?;
     Ok(embedding_tensor)
@@ -26,7 +23,11 @@ pub fn rem_scala_dims(
             rem_dims.push(*i);
         }
     }
-    tensor.reshape(Shape::from_dims(rem_dims.as_slice()))
+    let new_shape=Shape::from_dims(rem_dims.as_slice());
+    if new_shape!=*tensor.shape(){
+        warn!("Simplified tensor shape {:?} to {new_shape:?}", tensor.shape());
+    }
+    tensor.reshape(new_shape)
 }
 
 /// Returns `true` if the given `candle_core::Tensor` is full of zeros
