@@ -2,8 +2,8 @@
 use gguf_rs::get_gguf_container;
 
 use crate::{
-    tensors::{only_zeros, rot90},
-    weights::{get_token_embeddings, token_embeds_metadata},
+    tensors::only_zeros,
+    weights::{get_token_embeds, gguf_tensor_metadata, BartTensor},
 };
 
 #[test]
@@ -11,10 +11,10 @@ fn non_empty_token_embeddings() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
     let mut container = get_gguf_container(&model_path).unwrap();
     let model = container.decode().unwrap();
-    let token_embeddings = get_token_embeddings(&model, &model_path).unwrap().unwrap();
-    let rotated_embeddings = rot90(token_embeddings).unwrap();
-    for i in 0..rotated_embeddings.shape().clone().into_dims()[0] {
-        let embeddings = rotated_embeddings.get(i as usize).unwrap();
+    let token_embeds = get_token_embeds(&model, &model_path).unwrap().unwrap();
+
+    for i in 0..token_embeds.shape().clone().into_dims()[0] {
+        let embeddings = token_embeds.get(i as usize).unwrap();
         if only_zeros(&embeddings).unwrap() {
             panic!("Embedding index {i} is empty!");
         }
@@ -22,13 +22,13 @@ fn non_empty_token_embeddings() {
 }
 
 #[test]
-fn list_tensors(){
+fn list_tensors() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
     let mut container = get_gguf_container(&model_path).unwrap();
     let model = container.decode().unwrap();
-    let mut tensors: Vec<_>=model.tensors().iter().collect();
-    tensors.sort_by(|a,b|a.name.cmp(&b.name));
-    for i in tensors{
+    let mut tensors: Vec<_> = model.tensors().iter().collect();
+    tensors.sort_by(|a, b| a.name.cmp(&b.name));
+    for i in tensors {
         println!("{i:?}");
     }
 }
@@ -53,7 +53,7 @@ fn token_embedding_metadata_found() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
     let mut container = get_gguf_container(&model_path).unwrap();
     let model = container.decode().unwrap();
-    token_embeds_metadata(&model).unwrap();
+    gguf_tensor_metadata(&model, BartTensor::EmbedTokensWeights).unwrap();
 }
 
 #[test]
@@ -63,6 +63,6 @@ fn parses_token_embeddings() {
     let model = container.decode().unwrap();
     println!(
         "Embedding tensor: {:?}",
-        get_token_embeddings(&model, &model_path).unwrap()
+        get_token_embeds(&model, &model_path).unwrap()
     );
 }

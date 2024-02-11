@@ -23,9 +23,12 @@ pub fn rem_scala_dims(
             rem_dims.push(*i);
         }
     }
-    let new_shape=Shape::from_dims(rem_dims.as_slice());
-    if new_shape!=*tensor.shape(){
-        warn!("Simplified tensor shape {:?} to {new_shape:?}", tensor.shape());
+    let new_shape = Shape::from_dims(rem_dims.as_slice());
+    if new_shape != *tensor.shape() {
+        warn!(
+            "Simplified tensor shape {:?} to {new_shape:?}",
+            tensor.shape()
+        );
     }
     tensor.reshape(new_shape)
 }
@@ -41,7 +44,7 @@ pub fn only_zeros(tensor: &candle_core::Tensor) -> Result<bool, candle_core::Err
     Ok(true)
 }
 
-pub fn rot90(tensor: candle_core::Tensor)->Result<candle_core::Tensor, candle_core::Error>{
+pub fn rot90(tensor: candle_core::Tensor) -> Result<candle_core::Tensor, candle_core::Error> {
     let rotated_tensor = tensor.transpose(0, 1)?;
     let rotated_tensor = rem_scala_dims(rotated_tensor)?;
     Ok(rotated_tensor)
