@@ -1,14 +1,13 @@
 #![allow(dead_code)]
 
 use std::{collections::HashMap, fs, path::Path};
-use tracing::{debug, warn};
+
+use tracing::debug;
 
 #[derive(Clone, Copy)]
 pub struct Token {
     id: u32,
 }
-
-const BART_MAX_SEQ_LEN: usize = 1024;
 
 impl Token {
     pub fn from_substr(tokenizer: &WordPieceTokenizer, substr: &str) -> Option<Self> {
@@ -20,11 +19,11 @@ impl Token {
         tokenizer.vocab.get(&id)?;
         Some(Self { id })
     }
-    pub fn to_substr(&self, tokenizer: &WordPieceTokenizer) -> Option<Box<str>> {
+    pub fn to_substr(self, tokenizer: &WordPieceTokenizer) -> Option<Box<str>> {
         tokenizer.vocab.get(&self.id).map(|x| {
             x.to_owned()
                 .into_boxed_str()
-                .replace("Ġ", "_")
+                .replace('Ġ', "_")
                 .into_boxed_str()
         })
     }
@@ -38,104 +37,6 @@ pub struct WordPieceTokenizer {
     vocab: HashMap<u32, String>,
 }
 
-/// The state of an input sequence
-#[derive(Clone)]
-pub struct InputSeq<'a> {
-    pub tokens: Box<[Token]>,
-    pub embeds: Box<[candle_core::Tensor]>,
-    pub tokenizer: &'a WordPieceTokenizer,
-}
-
-impl<'a> InputSeq<'a> {
-    pub fn new(
-        text: Box<str>,
-        tokenizer: &'a WordPieceTokenizer,
-        token_embeds: candle_core::Tensor,
-        pos_embeds: candle_core::Tensor,
-    ) -> Result<Self, candle_core::Error> {
-        let tokens = Self::tokenize(&text, tokenizer);
-        let tokens = Self::format_for_bart(tokens, tokenizer);
-        let embeds = Self::embed(&tokens, token_embeds)?;
-        let embeds=Self::add_pos_embeds(embeds, pos_embeds)?;
-        Ok(Self {
-            tokens,
-            embeds,
-            tokenizer,
-        })
-    }
-
-    fn tokenize(text: &str, tokenizer: &WordPieceTokenizer) -> Box<[Token]> {
-        let mut tokens = Vec::new();
-        let text = text.replace(" ", "Ġ");
-        let mut start = 0;
-        while start < text.len() {
-            let longest = tokenizer
-                .vocab
-                .iter()
-                .filter(|(_key, value)| text[start..].starts_with(*value))
-                .max_by_key(|(_key, value)| value.len());
-
-            if let Some(longest) = longest {
-                tokens.push(Token::new(tokenizer, *longest.0).unwrap());
-                start += longest.1.len();
-            } else {
-                warn!("Unrecognized text sequence. Inserting <unk> token");
-                let unk = tokenizer
-                    .vocab
-                    .clone()
-                    .into_iter()
-                    .find(|(_, value)| value == "<unk>")
-                    .unwrap();
-                tokens.push(Token::new(tokenizer, unk.0).unwrap());
-                start += 1;
-            }
-        }
-        debug!("Tokenized text into {} tokens", tokens.len());
-        return tokens.into();
-    }
-
-    /// Formats the given tokens in the way BART was trained to process them
-    fn format_for_bart(tokens: Box<[Token]>, tokenizer: &WordPieceTokenizer) -> Box<[Token]> {
-        debug!("Formatting input token sequence");
-        let mut tokens = tokens.to_vec();
-        tokens.insert(
-            0,
-            Token::from_substr(tokenizer, "<s>").expect("<s> not found in vocab"),
-        );
-        tokens.push(Token::from_substr(tokenizer, "</s>").expect("</s> not found in vocab"));
-        let padding_length = BART_MAX_SEQ_LEN - tokens.len();
-        tokens.reserve(padding_length);
-        for _ in 0..padding_length {
-            tokens.push(Token::from_substr(tokenizer, "<pad>").expect("<pad> not found in vocab"));
-        }
-        return tokens.into_boxed_slice();
-    }
-
-    fn embed(
-        tokens: &[Token],
-        embed_tensor: candle_core::Tensor,
-    ) -> Result<Box<[candle_core::Tensor]>, candle_core::Error> {
-        debug!("Assigning token embeddings");
-        let mut embeds = Vec::with_capacity(tokens.len());
-        for i in tokens.into_iter() {
-            embeds.push(embed_tensor.get(i.get_id() as usize)?)
-        }
-        return Ok(embeds.into_boxed_slice());
-    }
-
-    fn add_pos_embeds(
-        embeds: Box<[candle_core::Tensor]>,
-        pos_embeds: candle_core::Tensor,
-    ) -> Result<Box<[candle_core::Tensor]>, candle_core::Error> {
-        let mut comb_embeds = Vec::with_capacity(embeds.len());
-        for (i, t) in embeds.iter().enumerate() {
-            let with_pos = t + pos_embeds.get(i)?;
-            comb_embeds.push(with_pos?);
-        }
-        Ok(comb_embeds.into_boxed_slice())
-    }
-}
-
 impl WordPieceTokenizer {
     pub fn new<T: AsRef<Path>>(vocab_path: T) -> Result<Self, std::io::Error> {
         let contents = fs::read_to_string(vocab_path)?;
@@ -146,5 +47,9 @@ impl WordPieceTokenizer {
             .collect();
         debug!("Loaded vocabulary of {} tokens", vocab.len());
         Ok(Self { vocab })
+    }
+
+    pub fn get_vocab(&self) -> &HashMap<u32, String> {
+        &self.vocab
     }
 }

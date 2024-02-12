@@ -3,18 +3,19 @@ use gguf_rs::get_gguf_container;
 
 use crate::{
     tensors::only_zeros,
-    weights::{get_tensor, gguf_tensor_metadata, BartTensor},
+    weights::{gguf_tensor_metadata, BartTensor, BartTensorVar},
 };
 
 #[test]
 fn non_empty_token_embeddings() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
-    let mut container = get_gguf_container(&model_path).unwrap();
+    let mut container = get_gguf_container(model_path).unwrap();
     let model = container.decode().unwrap();
-    let token_embeds = get_tensor(&model, &model_path, BartTensor::EmbedTokensWeights).unwrap().unwrap();
+    let token_embeds =
+        BartTensor::new(&model, &model_path, BartTensorVar::EmbedTokensWeights).unwrap();
 
-    for i in 0..token_embeds.shape().clone().into_dims()[0] {
-        let embeddings = token_embeds.get(i as usize).unwrap();
+    for i in 0..token_embeds.get_tensor().shape().clone().into_dims()[0] {
+        let embeddings = token_embeds.get_tensor().get(i).unwrap();
         if only_zeros(&embeddings).unwrap() {
             panic!("Embedding index {i} is empty!");
         }
@@ -24,7 +25,7 @@ fn non_empty_token_embeddings() {
 #[test]
 fn list_tensors() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
-    let mut container = get_gguf_container(&model_path).unwrap();
+    let mut container = get_gguf_container(model_path).unwrap();
     let model = container.decode().unwrap();
     let mut tensors: Vec<_> = model.tensors().iter().collect();
     tensors.sort_by(|a, b| a.name.cmp(&b.name));
@@ -36,7 +37,7 @@ fn list_tensors() {
 #[test]
 fn parses_gguf() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
-    let mut container = get_gguf_container(&model_path).unwrap();
+    let mut container = get_gguf_container(model_path).unwrap();
     let model = container.decode().unwrap();
     println!("Model Family: {}", model.model_family());
     println!("Number of Parameters: {}", model.model_parameters());
@@ -51,18 +52,18 @@ fn parses_gguf() {
 #[test]
 fn token_embedding_metadata_found() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
-    let mut container = get_gguf_container(&model_path).unwrap();
+    let mut container = get_gguf_container(model_path).unwrap();
     let model = container.decode().unwrap();
-    gguf_tensor_metadata(&model, BartTensor::EmbedTokensWeights).unwrap();
+    gguf_tensor_metadata(&model, BartTensorVar::EmbedTokensWeights).unwrap();
 }
 
 #[test]
 fn parses_token_embeddings() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
-    let mut container = get_gguf_container(&model_path).unwrap();
+    let mut container = get_gguf_container(model_path).unwrap();
     let model = container.decode().unwrap();
     println!(
         "Embedding tensor: {:?}",
-        get_tensor(&model, &model_path, BartTensor::EmbedTokensWeights).unwrap()
+        BartTensor::new(&model, &model_path, BartTensorVar::EmbedTokensWeights).unwrap()
     );
 }
