@@ -3,7 +3,7 @@ use gguf_rs::get_gguf_container;
 
 use crate::{
     tensors::only_zeros,
-    weights::{get_token_embeds, gguf_tensor_metadata, BartTensor},
+    weights::{get_tensor, gguf_tensor_metadata, BartTensor},
 };
 
 #[test]
@@ -11,7 +11,7 @@ fn non_empty_token_embeddings() {
     let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
     let mut container = get_gguf_container(&model_path).unwrap();
     let model = container.decode().unwrap();
-    let token_embeds = get_token_embeds(&model, &model_path).unwrap().unwrap();
+    let token_embeds = get_tensor(&model, &model_path, BartTensor::EmbedTokensWeights).unwrap().unwrap();
 
     for i in 0..token_embeds.shape().clone().into_dims()[0] {
         let embeddings = token_embeds.get(i as usize).unwrap();
@@ -63,6 +63,6 @@ fn parses_token_embeddings() {
     let model = container.decode().unwrap();
     println!(
         "Embedding tensor: {:?}",
-        get_token_embeds(&model, &model_path).unwrap()
+        get_tensor(&model, &model_path, BartTensor::EmbedTokensWeights).unwrap()
     );
 }

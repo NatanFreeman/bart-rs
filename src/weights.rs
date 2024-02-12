@@ -13,14 +13,15 @@ use crate::tensors::{rot90, tensor_from_floats};
 pub enum Error {
     #[error("Failed to read tensor file")]
     Disconnect(#[from] io::Error),
-    #[error("GGUF file doesn't define embedding weights")]
-    NoEmbeddingWeights,
+    #[error("Tensor {0} not found in GGUF file")]
+    MissingTensor(BartTensor),
     #[error("Failed to deserialize tensor")]
     Deserialize(#[from] bincode::Error),
     #[error("Failed to build tensor from floats")]
     BuildingTensor(#[from] candle_core::Error),
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum BartTensor {
     EmbedPositionWeights,
     EmbedTokensWeights,
@@ -65,13 +66,14 @@ fn deserialize_floats(buffer: Box<[u8]>) -> Result<Box<[f16]>, bincode::Error> {
     Ok(floats.into_boxed_slice())
 }
 
-pub fn get_token_embeds<P: AsRef<Path>>(
+pub fn get_tensor<P: AsRef<Path>>(
     model: &GGUFModel,
     model_path: &P,
+    tensor: BartTensor
 ) -> Result<Option<candle_core::Tensor>, Error> {
-    let tensor_metadata = gguf_tensor_metadata(&model, BartTensor::EmbedTokensWeights)
-        .ok_or(Error::NoEmbeddingWeights)?;
-    debug!("Embedding tensor metadata {tensor_metadata:?}");
+    let tensor_metadata = gguf_tensor_metadata(&model, tensor)
+        .ok_or(Error::MissingTensor(tensor))?;
+    debug!("Tensor metadata {tensor_metadata:?}");
     let mut embeddings_buffer = vec![0; tensor_metadata.size as usize * 8];
     {
         let model_file = File::open(model_path)?;

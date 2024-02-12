@@ -50,11 +50,13 @@ impl<'a> InputSeq<'a> {
     pub fn new(
         text: Box<str>,
         tokenizer: &'a WordPieceTokenizer,
-        embed_tensor: candle_core::Tensor,
+        token_embeds: candle_core::Tensor,
+        pos_embeds: candle_core::Tensor,
     ) -> Result<Self, candle_core::Error> {
         let tokens = Self::tokenize(&text, tokenizer);
-        let tokens = Self::format_for_bart(tokens, tokenizer).unwrap();
-        let embeds = Self::embed(&tokens, embed_tensor)?;
+        let tokens = Self::format_for_bart(tokens, tokenizer);
+        let embeds = Self::embed(&tokens, token_embeds)?;
+        let embeds=Self::add_pos_embeds(embeds, pos_embeds)?;
         Ok(Self {
             tokens,
             embeds,
@@ -93,23 +95,23 @@ impl<'a> InputSeq<'a> {
     }
 
     /// Formats the given tokens in the way BART was trained to process them
-    pub fn format_for_bart(
-        tokens: Box<[Token]>,
-        tokenizer: &WordPieceTokenizer,
-    ) -> Option<Box<[Token]>> {
+    fn format_for_bart(tokens: Box<[Token]>, tokenizer: &WordPieceTokenizer) -> Box<[Token]> {
         debug!("Formatting input token sequence");
         let mut tokens = tokens.to_vec();
-        tokens.insert(0, Token::from_substr(tokenizer, "<s>")?);
-        tokens.push(Token::from_substr(tokenizer, "</s>")?);
+        tokens.insert(
+            0,
+            Token::from_substr(tokenizer, "<s>").expect("<s> not found in vocab"),
+        );
+        tokens.push(Token::from_substr(tokenizer, "</s>").expect("</s> not found in vocab"));
         let padding_length = BART_MAX_SEQ_LEN - tokens.len();
         tokens.reserve(padding_length);
         for _ in 0..padding_length {
-            tokens.push(Token::from_substr(tokenizer, "<pad>")?);
+            tokens.push(Token::from_substr(tokenizer, "<pad>").expect("<pad> not found in vocab"));
         }
-        return Some(tokens.into_boxed_slice());
+        return tokens.into_boxed_slice();
     }
 
-    pub fn embed(
+    fn embed(
         tokens: &[Token],
         embed_tensor: candle_core::Tensor,
     ) -> Result<Box<[candle_core::Tensor]>, candle_core::Error> {
@@ -119,6 +121,18 @@ impl<'a> InputSeq<'a> {
             embeds.push(embed_tensor.get(i.get_id() as usize)?)
         }
         return Ok(embeds.into_boxed_slice());
+    }
+
+    fn add_pos_embeds(
+        embeds: Box<[candle_core::Tensor]>,
+        pos_embeds: candle_core::Tensor,
+    ) -> Result<Box<[candle_core::Tensor]>, candle_core::Error> {
+        let mut comb_embeds = Vec::with_capacity(embeds.len());
+        for (i, t) in embeds.iter().enumerate() {
+            let with_pos = t + pos_embeds.get(i)?;
+            comb_embeds.push(with_pos?);
+        }
+        Ok(comb_embeds.into_boxed_slice())
     }
 }
 
