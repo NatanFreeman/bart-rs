@@ -14,7 +14,7 @@ use tracing_subscriber::FmtSubscriber;
 
 use crate::{
     input::InputSeq,
-    weights::{BartTensor, BartTensorVar},
+    weights::{BartTensor, BartTensorType},
 };
 
 fn main() {
@@ -32,11 +32,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     info!("Reading model from {model_path}");
     let mut container = get_gguf_container(model_path)?;
     let model = container.decode()?;
-    let token_embeds = BartTensor::new(&model, &model_path, BartTensorVar::EmbedTokensWeights)?;
-    let pos_embeds = BartTensor::new(&model, &model_path, BartTensorVar::EmbedPositionWeights)?;
-    let input_seq = InputSeq::new("The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration".into(),&tokenizer, token_embeds, pos_embeds)?;
+    let token_embeds = BartTensor::new(&model, &model_path, BartTensorType::EmbedTokensWeights)?;
+    let pos_embeds = BartTensor::new(&model, &model_path, BartTensorType::EmbedPositionWeights)?;
+    let input_seq = InputSeq::new("The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration".into());
+    let input_seq = input_seq
+        .tokenize(&tokenizer)
+        .format_for_bart()
+        .embed(&token_embeds.tensor)?
+        .add_pos_embeds(&pos_embeds.tensor)?;
 
-    for i in input_seq.embeds.iter() {
+    for i in input_seq.get_embeds().iter() {
         println!("{:?}", i.to_vec1::<f16>()?[..5].to_vec());
     }
     Ok(())

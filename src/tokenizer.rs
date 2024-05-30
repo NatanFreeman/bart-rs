@@ -32,7 +32,7 @@ impl Token {
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone, Default)]
 pub struct WordPieceTokenizer {
     vocab: HashMap<u32, String>,
 }
