@@ -1,12 +1,8 @@
 #![cfg(test)]
-use std::fs::File;
 
 use gguf_rs::get_gguf_container;
 
-use crate::{
-    tensors::only_zeros,
-    weights::{gguf_tensor_metadata, AttnLayer, BartTensor, BartTensorType},
-};
+use crate::{bart_tensor_type::BartTensorType, tensors::only_zeros, weights::{gguf_tensor_metadata, BartTensor}};
 
 #[test]
 fn non_empty_token_embeddings() {

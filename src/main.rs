@@ -1,4 +1,5 @@
 #![allow(clippy::boxed_local)]
+mod bart_tensor_type;
 mod input;
 mod tensors;
 mod tests;
@@ -11,11 +12,10 @@ use tokenizer::WordPieceTokenizer;
 
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
+use weights::BartTensor;
 
-use crate::{
-    input::InputSeq,
-    weights::{BartTensor, BartTensorType},
-};
+use crate::bart_tensor_type::BartTensorType;
+use crate::input::InputSeq;
 
 fn main() {
     let subscriber = FmtSubscriber::builder()
