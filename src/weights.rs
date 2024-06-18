@@ -1,10 +1,16 @@
 use candle_core::Shape;
 use gguf_rs::GGUFModel;
 use half::f16;
-use std::{fs::File, io, os::windows::fs::FileExt, path::Path};
+use std::{fs::File, io, path::Path};
+
+#[cfg(unix)]
+use std::os::unix::fs::FileExt;
+
+#[cfg(windows)]
+use std::os::windows::fs::FileExt;
 
 use crate::{
-    bart_tensor_type::{BartTensorType, TensorType},
+    bart_tensor_type::{BartTensorType},
     tensors::{rot90, tensor_from_floats},
 };
 use tracing::{debug, error};
@@ -25,9 +31,18 @@ impl BartTensor {
             gguf_tensor_metadata(model, &t_type).ok_or(Error::MissingTensor(t_type.clone()))?;
         println!("Tensor metadata {tensor_metadata:?}");
         let mut embeddings_buffer = vec![0; tensor_metadata.size as usize * 8];
+
+        #[cfg(unix)]
         {
             let model_file = File::open(model_path)?;
-            model_file.seek_read(&mut embeddings_buffer, tensor_metadata.offset)?;
+            model_file.read_at(&mut embeddings_buffer, tensor_metadata.offset)?;
+        }
+
+        #[cfg(windows)]
+        {
+            let mut model_file = File::open(model_path)?;
+            model_file.seek(SeekFrom::Start(tensor_metadata.offset))?;
+            model_file.read_exact(&mut embeddings_buffer)?;
         }
 
         let floats = deserialize_floats(embeddings_buffer.into_boxed_slice())?;
