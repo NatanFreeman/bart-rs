@@ -2,11 +2,9 @@
 mod bart_tensor_type;
 mod input;
 mod tensors;
-mod tests;
 mod tokenizer;
 
 use candle_core::Device;
-use half::f16;
 use tensors::BartTensors;
 use tokenizer::WordPieceTokenizer;
 

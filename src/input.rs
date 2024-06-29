@@ -151,6 +151,6 @@ impl InputSeq<TokenEmbeddings> {
 }
 impl InputSeq<PositionedEmbeddings> {
     pub fn get_embeds(&self) -> &Box<[candle_core::Tensor]> {
-        return &self.state.0;
+        &self.state.0
     }
 }

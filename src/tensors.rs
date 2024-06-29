@@ -1,4 +1,4 @@
-use std::{fs::File, path::Path, str::FromStr};
+use std::{fs::File, path::Path};
 
 use candle_core::{quantized::{gguf_file, QTensor}, Device};
 
@@ -32,6 +32,6 @@ impl BartTensors {
     pub fn get_tensor(&mut self, tensor_name: TensorName, device: &Device) -> QTensor {
         self.tensors
             .tensor(&mut self.file, &tensor_name.to_string(), device)
-            .expect(&format!("tensor {tensor_name} not found in BartTensors"))
+            .unwrap_or_else(|_| panic!("tensor {tensor_name} not found in BartTensors"))
     }
 }
