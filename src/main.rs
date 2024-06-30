@@ -1,9 +1,9 @@
 #![allow(clippy::boxed_local)]
+mod attn_head;
 mod bart_tensor_type;
 mod input;
 mod tensors;
 mod tokenizer;
-mod attn_head;
 
 use candle_core::Device;
 use tensors::BartTensors;
@@ -41,8 +41,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .embed(&token_embeds.dequantize(&device)?)? //TODO: remove dequantization
         .add_pos_embeds(&pos_embeds.dequantize(&device)?)?;
 
-    for i in input_seq.get_embeds().iter() {
-        println!("{:?}", i.to_vec1::<f32>()?[..5].to_vec());
+    for i in 0..input_seq.get_embeds().dim(0)? {
+        let row = input_seq.get_embeds().get(i)?;
+        println!("{:?}", &row.to_vec1::<f32>()?[..5]);
     }
     Ok(())
 }

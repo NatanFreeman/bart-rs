@@ -4,25 +4,31 @@ use candle_core::{quantized::QTensor, Device};
 
 use crate::{
     bart_tensor_type::{AttnLayer, AttnType, TensorName, TensorType},
+    input::{InputSeq, PositionedEmbeddings},
     tensors::BartTensors,
 };
 
-struct NeuralNet {
-    bias: QTensor,
-    weights: QTensor,
+pub struct NeuralNet {
+    pub bias: QTensor,
+    pub weights: QTensor,
 }
-struct AttnHead {
-    q_layer: NeuralNet,
-    k_layer: NeuralNet,
-    v_layer: NeuralNet,
+pub struct AttnHead {
+    q: NeuralNet,
+    k: NeuralNet,
+    v: NeuralNet,
 }
 
 impl AttnHead {
-    fn new(
-        layer: usize,
-        tensors: &mut BartTensors,
-        device: &Device,
-    ) -> Result<Self, ()> {
+    pub fn get_q(&self) -> &NeuralNet {
+        &self.q
+    }
+    pub fn get_k(&self) -> &NeuralNet {
+        &self.k
+    }
+    pub fn get_v(&self) -> &NeuralNet {
+        &self.v
+    }
+    fn new(layer: usize, tensors: &mut BartTensors, device: &Device) -> Result<Self, ()> {
         let mut attn_tensors = Vec::with_capacity(6);
 
         let attns = [AttnType::Query, AttnType::Key, AttnType::Value];
@@ -42,15 +48,15 @@ impl AttnHead {
         }
 
         return Ok(AttnHead {
-            q_layer: NeuralNet {
+            q: NeuralNet {
                 bias: attn_tensors.remove(0),
                 weights: attn_tensors.remove(0),
             },
-            k_layer: NeuralNet {
+            k: NeuralNet {
                 bias: attn_tensors.remove(0),
                 weights: attn_tensors.remove(0),
             },
-            v_layer: NeuralNet {
+            v: NeuralNet {
                 bias: attn_tensors.remove(0),
                 weights: attn_tensors.remove(0),
             },

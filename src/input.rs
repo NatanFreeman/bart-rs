@@ -5,7 +5,7 @@ use tracing::debug;
 use tracing::warn;
 
 use candle_core::Tensor;
-pub const BART_MAX_SEQ_LEN: usize = 1024;
+pub const BART_MAX_SEQ_LEN: usize = 1026;
 
 /// The state of an input sequence
 #[derive(Clone, Default)]
@@ -13,7 +13,7 @@ pub struct InputSeq<T: InputData> {
     state: T,
 }
 
-trait InputData: Default + Clone {}
+pub trait InputData: Default + Clone {}
 
 #[derive(Default, Clone)]
 pub struct Empty {}
@@ -34,12 +34,24 @@ impl InputData for Tokenized {}
 pub struct BartTokens(Box<[Token]>);
 impl InputData for BartTokens {}
 
-#[derive(Default, Clone)]
-pub struct TokenEmbeddings(Box<[Tensor]>);
+#[derive(Clone)]
+pub struct TokenEmbeddings(Tensor);
+impl Default for TokenEmbeddings {
+    fn default() -> Self {
+        let device = candle_core::Device::Cpu;
+        Self(Tensor::new::<&[f32; 0]>(&[], &device).unwrap())
+    }
+}
 impl InputData for TokenEmbeddings {}
 
-#[derive(Default, Clone)]
-pub struct PositionedEmbeddings(Box<[Tensor]>);
+#[derive(Clone)]
+pub struct PositionedEmbeddings(Tensor);
+impl Default for PositionedEmbeddings {
+    fn default() -> Self {
+        let device = candle_core::Device::Cpu;
+        Self(Tensor::new::<&[f32; 0]>(&[], &device).unwrap())
+    }
+}
 impl InputData for PositionedEmbeddings {}
 
 impl InputSeq<Empty> {
@@ -123,34 +135,39 @@ impl InputSeq<BartTokens> {
         embed_tensor: &candle_core::Tensor,
     ) -> Result<InputSeq<TokenEmbeddings>, candle_core::Error> {
         debug!("Assigning token embeddings");
-        let mut embeds = Vec::with_capacity(self.state.0.len());
-        for i in self.state.0.iter() {
-            embeds.push(embed_tensor.get(i.get_id() as usize)?)
-        }
+
+        // Create a tensor of indices
+        let indices = candle_core::Tensor::from_vec(
+            self.state.0.iter().map(|token| token.get_id() as u32).collect(),
+            (self.state.0.len(),),
+            embed_tensor.device()
+        )?;
+
+        // Use index_select to get all embeddings at once
+        let embeds = embed_tensor.index_select(&indices, 0)?;
+
         Ok(InputSeq {
-            state: TokenEmbeddings(embeds.into_boxed_slice()),
+            state: TokenEmbeddings(embeds),
             ..Default::default()
         })
     }
 }
+
 impl InputSeq<TokenEmbeddings> {
     pub fn add_pos_embeds(
         self,
         pos_embeds: &candle_core::Tensor,
     ) -> Result<InputSeq<PositionedEmbeddings>, candle_core::Error> {
-        let mut comb_embeds = Vec::with_capacity(self.state.0.len());
-        for (i, t) in self.state.0.iter().enumerate() {
-            let with_pos = t + pos_embeds.get(i)?;
-            comb_embeds.push(with_pos?);
-        }
+        let comb_embeds = (&self.state.0 + pos_embeds)?;
+
         Ok(InputSeq {
-            state: PositionedEmbeddings(comb_embeds.into_boxed_slice()),
+            state: PositionedEmbeddings(comb_embeds),
             ..Default::default()
         })
     }
 }
 impl InputSeq<PositionedEmbeddings> {
-    pub fn get_embeds(&self) -> &Box<[candle_core::Tensor]> {
+    pub fn get_embeds(&self) -> &candle_core::Tensor {
         &self.state.0
     }
 }
