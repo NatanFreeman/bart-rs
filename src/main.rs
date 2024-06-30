@@ -3,6 +3,7 @@ mod bart_tensor_type;
 mod input;
 mod tensors;
 mod tokenizer;
+mod attn_head;
 
 use candle_core::Device;
 use tensors::BartTensors;
