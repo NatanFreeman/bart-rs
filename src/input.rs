@@ -10,10 +10,10 @@ pub const BART_MAX_SEQ_LEN: usize = 1026;
 /// The state of an input sequence
 #[derive(Clone, Default)]
 pub struct InputSeq<T: InputData> {
-    state: T,
+    pub state: T,
 }
 
-pub trait InputData: Default + Clone {}
+pub trait InputData{}
 
 #[derive(Default, Clone)]
 pub struct Empty {}
@@ -136,14 +136,12 @@ impl InputSeq<BartTokens> {
     ) -> Result<InputSeq<TokenEmbeddings>, candle_core::Error> {
         debug!("Assigning token embeddings");
 
-        // Create a tensor of indices
         let indices = candle_core::Tensor::from_vec(
             self.state.0.iter().map(|token| token.get_id() as u32).collect(),
             (self.state.0.len(),),
             embed_tensor.device()
         )?;
 
-        // Use index_select to get all embeddings at once
         let embeds = embed_tensor.index_select(&indices, 0)?;
 
         Ok(InputSeq {

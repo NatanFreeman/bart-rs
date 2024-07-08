@@ -1,4 +1,5 @@
 #![allow(clippy::boxed_local)]
+mod attn;
 mod attn_head;
 mod bart_tensor_type;
 mod input;

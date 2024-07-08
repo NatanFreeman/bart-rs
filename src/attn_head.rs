@@ -1,10 +1,7 @@
-use std::path::Path;
-
 use candle_core::{quantized::QTensor, Device};
 
 use crate::{
     bart_tensor_type::{AttnLayer, AttnType, TensorName, TensorType},
-    input::{InputSeq, PositionedEmbeddings},
     tensors::BartTensors,
 };
 
@@ -28,7 +25,7 @@ impl AttnHead {
     pub fn get_v(&self) -> &NeuralNet {
         &self.v
     }
-    fn new(layer: usize, tensors: &mut BartTensors, device: &Device) -> Result<Self, ()> {
+    pub fn new(layer: usize, tensors: &mut BartTensors, device: &Device) -> Result<Self, ()> {
         let mut attn_tensors = Vec::with_capacity(6);
 
         let attns = [AttnType::Query, AttnType::Key, AttnType::Value];
@@ -66,19 +63,10 @@ impl AttnHead {
 
 #[cfg(test)]
 mod tests {
-    use tracing::Level;
-    use tracing_subscriber::FmtSubscriber;
-
     use crate::attn_head::AttnHead;
 
     #[test]
     fn loads_layers() {
-        let subscriber = FmtSubscriber::builder()
-            .with_max_level(Level::TRACE)
-            .finish();
-        tracing::subscriber::set_global_default(subscriber)
-            .expect("setting default subscriber failed");
-
         let model_path = "bart-large-cnn/bart-large-cnn_f16.gguf";
         let mut tensors = crate::tensors::BartTensors::new(&model_path).unwrap();
         let device = candle_core::Device::new_metal(0).unwrap();
