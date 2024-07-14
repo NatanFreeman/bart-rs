@@ -3,9 +3,8 @@ use std::ops::Add;
 use crate::{
     attn_head::AttnHead,
     input::{InputData, InputSeq, PositionedEmbeddings},
-    tokenizer::WordPieceTokenizer,
 };
-use candle_core::{quantized::QTensor, Device, Tensor};
+use candle_core::{quantized::QTensor, Device, Shape, Tensor};
 use itertools::Itertools;
 use tracing::debug;
 
@@ -27,15 +26,15 @@ impl Encoded {
 /// This function takes three arguments: the input tensor, the bias tensor (which is 1D), and the device on which the computation will be performed.
 /// It returns a new Tensor that has the same shape as the input tensor but contains the broadcasted bias values.
 fn stack_1d_tensor(
-    tensor: &Tensor,
-    bias: &QTensor,
+    shape: &Shape,
+    tensor: &QTensor,
     device: &Device,
 ) -> candle_core::Result<Tensor> {
-    debug!("Reshaping bias {:?} to be 2D", bias.shape());
-    let bias_2d = bias.dequantize_f16(device)?.unsqueeze(0)?;
+    debug!("Reshaping bias {:?} to be 2D", tensor.shape());
+    let bias_2d = tensor.dequantize_f16(device)?.unsqueeze(0)?;
     debug!("Filling 2D bias {:?}", bias_2d.shape());
     // Broadcast the 2D bias tensor to have the same shape as the input tensor for element-wise addition
-    let full_bias = bias_2d.broadcast_as(tensor.shape())?;
+    let full_bias = bias_2d.broadcast_as(shape)?;
     Ok(full_bias)
 }
 
@@ -56,7 +55,7 @@ impl AttnHead {
                     x.weights.shape()
                 );
                 let tensor = input_embeds.matmul(&x.weights.dequantize_f16(device)?)?;
-                let bias = stack_1d_tensor(&tensor, &x.bias, device)?;
+                let bias = stack_1d_tensor(tensor.shape(), &x.bias, device)?;
 
                 println!(
                     "adding bias {:?} to matmul {:?}",
@@ -79,8 +78,151 @@ impl AttnHead {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::assertions;
+    use crate::utils::assertions::Print;
     use crate::TensorName;
-    use candle_core::{backend::BackendDevice, quantized::QTensor, DType, Device, MetalDevice, Tensor};
+    use crate::WordPieceTokenizer;
+    use candle_core::Shape;
+    use candle_core::{Device, Tensor};
+    use half::f16;
+
+    #[test]
+    fn test_stack() {
+        let device = Device::new_metal(0).unwrap();
+        let t = Tensor::from_iter((0..10).map(|i| i as f32), &device).unwrap();
+        let t = QTensor::quantize(&t, candle_core::quantized::GgmlDType::F16).unwrap();
+
+        let stacked = stack_1d_tensor(&Shape::from_dims(&[10, 10]), &t, &device).unwrap();
+        stacked.print().unwrap();
+        let data = [
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+            [
+                f16::from_f32(0.0f32),
+                f16::from_f32(1.0f32),
+                f16::from_f32(2.0f32),
+                f16::from_f32(3.0f32),
+                f16::from_f32(4.0f32),
+                f16::from_f32(5.0f32),
+                f16::from_f32(6.0f32),
+                f16::from_f32(7.0f32),
+                f16::from_f32(8.0f32),
+                f16::from_f32(9.0f32),
+            ],
+        ];
+
+        let expected = Tensor::new(&data, &device).unwrap();
+
+        expected.print().unwrap();
+        let cmp = assertions::tensors_equal(&stacked, &expected).unwrap();
+        assert!(cmp);
+    }
 
     #[test]
     fn encodes() {
